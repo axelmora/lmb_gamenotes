@@ -253,10 +253,10 @@ knitr::kable(tx_df)
 ```
 
 ```{r tables-output, results='asis'}
-if (exists("tables", inherits = TRUE)) {
-  game_tables <- get("tables", inherits = TRUE)
-} else if (!is.null(g$tables)) {
+if (!is.null(g$tables)) {
   game_tables <- g$tables
+} else if (exists("tables", inherits = TRUE)) {
+  game_tables <- get("tables", inherits = TRUE)
 } else {
   game_tables <- NULL
 }

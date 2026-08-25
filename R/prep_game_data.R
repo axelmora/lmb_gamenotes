@@ -11,6 +11,21 @@
 #' game_data() es el contrato que el resto del pipeline (game-notes.qmd)
 #' espera, independientemente de si los datos vienen de aqui o de ahi.
 
+load_game_tables <- function(path = "tables.rds") {
+  candidate_paths <- unique(c(
+    path,
+    file.path(getwd(), path),
+    file.path(dirname(normalizePath("R/prep_game_data.R", mustWork = FALSE)), "..", path)
+  ))
+
+  existing_path <- candidate_paths[file.exists(candidate_paths)][1]
+  if (is.na(existing_path)) {
+    return(NULL)
+  }
+
+  readRDS(existing_path)
+}
+
 game_data <- function() {
   list(
     # --- Metadatos del juego ---------------------------------------------
@@ -100,6 +115,12 @@ game_data <- function() {
       list(medio = "TV (TIJ)", detalle = "Toros Network"),
       list(medio = "TV (JAL)", detalle = "Charros TV"),
       list(medio = "Radio", detalle = "1550 AM")
-    )
+    ),
+
+    # --- Tablas estadisticas ---------------------------------------------
+    # Si tables.rds existe en la raiz del repo, queda disponible para Quarto
+    # como g$tables. Mantiene NULL como fallback para que el mockup siga
+    # renderizando aun cuando el archivo no este presente.
+    tables = load_game_tables()
   )
 }
