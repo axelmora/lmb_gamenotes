@@ -1,0 +1,257 @@
+---
+title: "Game Notes"
+format:
+  html:
+    css: styles.css
+    toc: false
+    embed-resources: true
+    page-layout: article
+  typst:
+    papersize: us-letter
+    margin:
+      x: 1.3cm
+      y: 1.3cm
+    mainfont: "Liberation Sans"
+    fontsize: 9pt
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+options(scipen = 999)
+library(dplyr)
+library(ggplot2)
+source("R/prep_game_data.R")
+g <- game_data()
+
+fmt <- knitr::pandoc_to()
+is_html <- identical(fmt, "html")
+is_typst <- identical(fmt, "typst")
+
+# Helper: abre/cierra el bloque raw correcto segun el formato de salida,
+# para poder escribir HTML y typst en el mismo cat() sin repetir el patron
+# ```{=format} ... ``` en cada seccion.
+raw_open <- function() if (is_html) cat('```{=html}\n') else if (is_typst) cat('```{=typst}\n')
+raw_close <- function() if (is_html || is_typst) cat('\n```\n')
+
+# Barra negra con texto centrado en mayusculas -- el elemento estructural
+# que mas define el estilo del boletin de referencia.
+black_bar <- function(text) {
+  raw_open()
+  if (is_html) {
+    cat(sprintf('<div class="black-bar">%s</div>\n', toupper(text)))
+  } else if (is_typst) {
+    cat(sprintf('
+#block(fill: rgb("#111111"), inset: (x: 10pt, y: 6pt), width: 100%%)[
+  #align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 11pt, tracking: 1pt)[%s]]
+]
+', toupper(text)))
+  }
+  raw_close()
+}
+```
+
+```{r header, results='asis'}
+raw_open()
+if (is_html) {
+  cat(sprintf('
+<div class="gn-header">
+  <div class="team-badge away">%s</div>
+  <div class="matchup-title">
+    (%s) %s VS %s (%s)
+  </div>
+  <div class="team-badge home">%s</div>
+</div>
+<div class="gn-schedule">
+  %s %s (%s hrs) | TV: %s | Radio: %s<br>
+  <strong>%s, %s</strong>
+</div>
+',
+  g$visitante$inicial,
+  g$visitante$record_serie, toupper(g$visitante$nombre), toupper(g$local$nombre), g$local$record_serie,
+  g$local$inicial,
+  g$dia_semana, g$fecha, g$hora_inicio, g$tv, g$radio,
+  toupper(g$sede), g$ciudad_sede
+))
+} else if (is_typst) {
+  cat(sprintf('
+#block(fill: rgb("#111111"), inset: 12pt, width: 100%%)[
+  #align(center)[
+    #text(fill: rgb("#e8703a"), size: 15pt, weight: "bold")[(%s) %s VS %s (%s)]
+  ]
+]
+#v(4pt)
+#align(center)[
+  #text(size: 8.5pt)[%s %s (%s hrs) | TV: %s | Radio: %s] \\
+  #text(size: 9.5pt, weight: "bold")[%s, %s]
+]
+#v(6pt)
+',
+  g$visitante$record_serie, toupper(g$visitante$nombre), toupper(g$local$nombre), g$local$record_serie,
+  g$dia_semana, g$fecha, g$hora_inicio, g$tv, g$radio,
+  toupper(g$sede), g$ciudad_sede
+))
+}
+raw_close()
+```
+
+```{r temas-header, results='asis'}
+raw_open()
+if (is_html) {
+  cat(sprintf('<div class="two-col-bar"><div class="black-bar half">%s</div><div class="black-bar half">%s</div></div>\n',
+              toupper(g$visitante$nombre), toupper(g$local$nombre)))
+} else if (is_typst) {
+  cat(sprintf('
+#grid(columns: (1fr, 1fr), column-gutter: 6pt,
+  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 9.5pt)[%s]]],
+  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 9.5pt)[%s]]],
+)
+', toupper(g$visitante$nombre), toupper(g$local$nombre)))
+}
+raw_close()
+```
+
+::: {layout-ncol="2"}
+
+::: {.temas-col}
+**Temas a seguir...**
+
+```{r temas-visitante, results='asis'}
+for (t in g$visitante$temas) cat(sprintf("- %s\n", t))
+```
+:::
+
+::: {.temas-col}
+**Temas a seguir...**
+
+```{r temas-local, results='asis'}
+for (t in g$local$temas) cat(sprintf("- %s\n", t))
+```
+:::
+
+:::
+
+**Resultados de la serie previa...**
+
+```{r serie-previa}
+serie_df <- purrr::map_df(g$resultados_serie_previa, ~ tibble::tibble(
+  Fecha = .x$fecha, Resultado = .x$resultado, Sede = .x$sede
+))
+knitr::kable(serie_df)
+```
+
+```{r abridores-bar, results='asis'}
+black_bar(sprintf("Abridores probables \u2014 Juego %d", g$juego_serie))
+```
+
+::: {layout-ncol="2"}
+
+::: {.pitcher-card}
+**`r g$abridor_visitante$nombre`** (`r g$abridor_visitante$pais`) — `r g$visitante$abrev`
+
+| | |
+|---|---|
+| Efectividad temporada | `r g$abridor_visitante$era_temporada` |
+| K/9 temporada | `r g$abridor_visitante$k9_temporada` |
+| Récord en playoffs | `r g$abridor_visitante$record_playoffs` |
+| Efectividad en playoffs | `r g$abridor_visitante$era_playoffs` |
+| Última salida | `r g$abridor_visitante$ultima_salida` |
+:::
+
+::: {.pitcher-card}
+**`r g$abridor_local$nombre`** (`r g$abridor_local$pais`) — `r g$local$abrev`
+
+| | |
+|---|---|
+| Récord en playoffs | `r g$abridor_local$record_playoffs` |
+| Efectividad en playoffs | `r g$abridor_local$era_playoffs` |
+| Última salida (temporada) | `r g$abridor_local$ultima_salida_temporada` |
+:::
+
+:::
+
+```{r era-chart, fig.width=6, fig.height=2.2}
+era_df <- tibble::tibble(
+  pitcher = rep(c(g$abridor_visitante$nombre, g$abridor_local$nombre), each = 2),
+  periodo = rep(c("Temporada", "Playoffs"), 2),
+  era = c(g$abridor_visitante$era_temporada, g$abridor_visitante$era_playoffs,
+          NA, g$abridor_local$era_playoffs)
+) |> filter(!is.na(era))
+
+ggplot(era_df, aes(x = pitcher, y = era, fill = periodo)) +
+  geom_col(position = position_dodge(width = 0.6), width = 0.55) +
+  geom_text(aes(label = sprintf("%.2f", era)),
+            position = position_dodge(width = 0.6), vjust = -0.4, size = 3.2) +
+  scale_fill_manual(values = c("Temporada" = "#c9c9c9", "Playoffs" = "#111111")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(x = NULL, y = "ERA", fill = NULL) +
+  theme_minimal(base_size = 9) +
+  theme(legend.position = "top")
+```
+
+::: {layout="[35,65]"}
+
+::: {.stat-box}
+```{r cifra-box, results='asis'}
+raw_open()
+if (is_html) {
+  cat(sprintf('
+<div class="cifra-titulo">CIFRA DEL DÍA</div>
+<div class="cifra-valor-grande">%s</div>
+<div class="cifra-desc">%s</div>
+', g$cifra_destacada$valor, g$cifra_destacada$etiqueta))
+} else if (is_typst) {
+  cat(sprintf('
+#block(stroke: 0.5pt + rgb("#cccccc"), radius: 4pt, inset: 10pt, width: 100%%)[
+  #align(center)[
+    #text(size: 8.5pt, weight: "bold", tracking: 1pt)[CIFRA DEL D\u00cdA] \\
+    #v(2pt)
+    #text(size: 24pt, weight: "bold")[%s] \\
+    #text(size: 7.5pt)[%s]
+  ]
+]
+', g$cifra_destacada$valor, g$cifra_destacada$etiqueta))
+}
+raw_close()
+```
+:::
+
+::: {.stat-box}
+```{r historial-box-open, results='asis'}
+if (is_typst) {
+  cat('```{=typst}\n#block(stroke: 0.5pt + rgb("#cccccc"), radius: 4pt, inset: 10pt, width: 100%)[\n#text(weight: "bold", size: 9.5pt)[Historial de la serie]\n#v(4pt)\n```\n\n')
+} else if (is_html) {
+  cat("**Historial de la serie**\n\n")
+}
+```
+
+```{r historial}
+hist_df <- purrr::map_df(g$historial, ~ tibble::tibble(" " = .x$etiqueta, "  " = .x$valor))
+knitr::kable(hist_df, col.names = NULL)
+```
+
+```{r historial-box-close, results='asis'}
+if (is_typst) cat('```{=typst}\n]\n```\n')
+```
+:::
+
+:::
+
+```{r reporte-bar, results='asis'}
+black_bar("Reporte del manager")
+```
+
+> `r g$reporte_manager`
+>
+> — **`r g$visitante$manager`**, manager de `r g$visitante$nombre` (récord en playoffs: `r g$visitante$manager_record_playoffs`)
+
+```{r transmisiones}
+tx_df <- purrr::map_df(g$transmisiones, ~ tibble::tibble(Medio = .x$medio, Detalle = .x$detalle))
+knitr::kable(tx_df)
+```
+
+::: {.footer}
+Elaborado a partir de datos oficiales de LMB · GamePK `r format(g$gamepk, scientific = FALSE)` · Documento generado automáticamente con Quarto
+:::
