@@ -18,7 +18,7 @@ body {
 
 .black-bar {
   background: var(--black);
-  color: var(--orange);
+  color: #ffffff;
   text-align: center;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -52,7 +52,7 @@ body {
 }
 
 .matchup-title {
-  color: var(--orange);
+  color: #ffffff;
   font-weight: 800;
   font-size: 1.15rem;
   text-align: center;
