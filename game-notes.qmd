@@ -45,7 +45,7 @@ black_bar <- function(text) {
   } else if (is_typst) {
     cat(sprintf('
 #block(fill: rgb("#111111"), inset: (x: 10pt, y: 6pt), width: 100%%)[
-  #align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 11pt, tracking: 1pt)[%s]]
+  #align(center)[#text(fill: white, weight: "bold", size: 11pt, tracking: 1pt)[%s]]
 ]
 ', toupper(text)))
   }
@@ -79,7 +79,7 @@ if (is_html) {
   cat(sprintf('
 #block(fill: rgb("#111111"), inset: 12pt, width: 100%%)[
   #align(center)[
-    #text(fill: rgb("#e8703a"), size: 15pt, weight: "bold")[(%s) %s VS %s (%s)]
+    #text(fill: white, size: 15pt, weight: "bold")[(%s) %s VS %s (%s)]
   ]
 ]
 #v(4pt)
@@ -105,8 +105,8 @@ if (is_html) {
 } else if (is_typst) {
   cat(sprintf('
 #grid(columns: (1fr, 1fr), column-gutter: 6pt,
-  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 9.5pt)[%s]]],
-  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: rgb("#e8703a"), weight: "bold", size: 9.5pt)[%s]]],
+  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: white, weight: "bold", size: 9.5pt)[%s]]],
+  block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: white, weight: "bold", size: 9.5pt)[%s]]],
 )
 ', toupper(g$visitante$nombre), toupper(g$local$nombre)))
 }
@@ -250,6 +250,57 @@ black_bar("Reporte del manager")
 ```{r transmisiones}
 tx_df <- purrr::map_df(g$transmisiones, ~ tibble::tibble(Medio = .x$medio, Detalle = .x$detalle))
 knitr::kable(tx_df)
+```
+
+```{r tables-output, results='asis'}
+if (!is.null(g$tables)) {
+  game_tables <- g$tables
+} else if (exists("tables", inherits = TRUE)) {
+  game_tables <- get("tables", inherits = TRUE)
+} else {
+  game_tables <- NULL
+}
+
+if (!is.null(game_tables) && length(game_tables) > 0) {
+  section_labels <- c(
+    hitting_team1_gt = "Bateo equipo 1",
+    hitting_team2_gt = "Bateo equipo 2",
+    pitching_team1_gt = "Pitcheo equipo 1",
+    pitching_team2_gt = "Pitcheo equipo 2",
+    hitting_vs_gt = "Comparativo de bateo",
+    pitching_vs_gt = "Comparativo de pitcheo",
+    hitting_t1_dt = "Bateo equipo 1",
+    hitting_t2_dt = "Bateo equipo 2",
+    pitching_t1_dt = "Pitcheo equipo 1",
+    pitching_t2_dt = "Pitcheo equipo 2",
+    hitting_vs_dt = "Comparativo de bateo",
+    pitching_vs_dt = "Comparativo de pitcheo"
+  )
+
+  display_names <- names(game_tables)
+  if (is.null(display_names)) display_names <- rep("", length(game_tables))
+
+  for (i in seq_along(game_tables)) {
+    table_name <- display_names[[i]]
+    table_obj <- game_tables[[i]]
+    if (is.null(table_obj)) next
+
+    label <- section_labels[[table_name]]
+    if (is.null(label)) {
+      label <- gsub("_", " ", table_name)
+    }
+
+    black_bar(label)
+
+    if (inherits(table_obj, "gt_tbl")) {
+      print(table_obj)
+    } else {
+      print(knitr::kable(table_obj))
+    }
+
+    cat("\n\n")
+  }
+}
 ```
 
 ::: {.footer}
