@@ -1,11 +1,6 @@
 ---
 title: "Game Notes"
 format:
-  html:
-    css: styles.css
-    toc: false
-    embed-resources: true
-    page-layout: article
   typst:
     papersize: us-letter
     margin:
@@ -26,90 +21,96 @@ library(ggplot2)
 source("R/prep_game_data.R")
 g <- game_data()
 
-fmt <- knitr::pandoc_to()
-is_html <- identical(fmt, "html")
-is_typst <- identical(fmt, "typst")
+is_typst <- identical(knitr::pandoc_to(), "typst")
+`%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || is.na(x)) y else x
 
-# Helper: abre/cierra el bloque raw correcto segun el formato de salida,
-# para poder escribir HTML y typst en el mismo cat() sin repetir el patron
-# ```{=format} ... ``` en cada seccion.
-raw_open <- function() if (is_html) cat('```{=html}\n') else if (is_typst) cat('```{=typst}\n')
-raw_close <- function() if (is_html || is_typst) cat('\n```\n')
+# Helpers para emitir bloques raw de Typst y texto seguro dentro de Typst.
+raw_open <- function() if (is_typst) cat('```{=typst}\n')
+raw_close <- function() if (is_typst) cat('\n```\n')
+
+typst_escape <- function(x) {
+  x <- as.character(x)
+  replacements <- c("\\" = "\\\\", '"' = '\\"', "#" = "\\#", "[" = "\\[", "]" = "\\]")
+  for (pattern in names(replacements)) {
+    x <- gsub(pattern, replacements[[pattern]], x, fixed = TRUE)
+  }
+  x
+}
+
+logo_candidates <- function(team) {
+  keys <- unique(tolower(c(team$abrev, team$inicial, team$nombre)))
+  keys <- gsub("[^a-z0-9]+", "-", keys)
+  keys <- gsub("(^-|-$)", "", keys)
+  as.vector(outer(c("logos", "assets/logos", "img", "images"),
+                  paste0(keys, ".png"), file.path))
+}
+
+team_logo_path <- function(team) {
+  configured <- team$logo %||% team$logo_path
+  candidates <- unique(c(configured, logo_candidates(team)))
+  found <- candidates[file.exists(candidates)][1]
+  if (is.na(found)) NULL else normalizePath(found, winslash = "/", mustWork = TRUE)
+}
+
+team_mark_typst <- function(team) {
+  logo <- team_logo_path(team)
+  if (!is.null(logo)) {
+    sprintf('#image("%s", height: 34pt)', typst_escape(logo))
+  } else {
+    sprintf('#circle(fill: rgb("#e8703a"), radius: 17pt)[#text(weight: "bold", size: 15pt)[%s]]',
+            typst_escape(team$inicial))
+  }
+}
 
 # Barra negra con texto centrado en mayusculas -- el elemento estructural
 # que mas define el estilo del boletin de referencia.
 black_bar <- function(text) {
   raw_open()
-  if (is_html) {
-    cat(sprintf('<div class="black-bar">%s</div>\n', toupper(text)))
-  } else if (is_typst) {
-    cat(sprintf('
+  cat(sprintf('
 #block(fill: rgb("#111111"), inset: (x: 10pt, y: 6pt), width: 100%%)[
   #align(center)[#text(fill: white, weight: "bold", size: 11pt, tracking: 1pt)[%s]]
 ]
-', toupper(text)))
-  }
+', typst_escape(toupper(text))))
   raw_close()
 }
 ```
 
 ```{r header, results='asis'}
 raw_open()
-if (is_html) {
-  cat(sprintf('
-<div class="gn-header">
-  <div class="team-badge away">%s</div>
-  <div class="matchup-title">
-    (%s) %s VS %s (%s)
-  </div>
-  <div class="team-badge home">%s</div>
-</div>
-<div class="gn-schedule">
-  %s %s (%s hrs) | TV: %s | Radio: %s<br>
-  <strong>%s, %s</strong>
-</div>
-',
-  g$visitante$inicial,
-  g$visitante$record_serie, toupper(g$visitante$nombre), toupper(g$local$nombre), g$local$record_serie,
-  g$local$inicial,
-  g$dia_semana, g$fecha, g$hora_inicio, g$tv, g$radio,
-  toupper(g$sede), g$ciudad_sede
-))
-} else if (is_typst) {
-  cat(sprintf('
-#block(fill: rgb("#111111"), inset: 12pt, width: 100%%)[
-  #align(center)[
-    #text(fill: white, size: 15pt, weight: "bold")[(%s) %s VS %s (%s)]
-  ]
+cat(sprintf('
+#block(fill: rgb("#111111"), inset: 10pt, width: 100%%)[
+  #grid(columns: (42pt, 1fr, 42pt), align: (center, horizon),
+    %s,
+    align(center)[#text(fill: white, size: 15pt, weight: "bold")[(%s) %s VS %s (%s)]],
+    %s,
+  )
 ]
 #v(4pt)
 #align(center)[
-  #text(size: 8.5pt)[%s %s (%s hrs) | TV: %s | Radio: %s] \\
+  #text(size: 8.5pt)[%s %s (%s) | TV: %s | Radio: %s] \\
   #text(size: 9.5pt, weight: "bold")[%s, %s]
 ]
 #v(6pt)
 ',
-  g$visitante$record_serie, toupper(g$visitante$nombre), toupper(g$local$nombre), g$local$record_serie,
-  g$dia_semana, g$fecha, g$hora_inicio, g$tv, g$radio,
-  toupper(g$sede), g$ciudad_sede
+  team_mark_typst(g$visitante),
+  typst_escape(g$visitante$record_serie), typst_escape(toupper(g$visitante$nombre)),
+  typst_escape(toupper(g$local$nombre)), typst_escape(g$local$record_serie),
+  team_mark_typst(g$local),
+  typst_escape(g$dia_semana), typst_escape(g$fecha), typst_escape(g$hora_inicio),
+  typst_escape(g$tv), typst_escape(g$radio),
+  typst_escape(toupper(g$sede)), typst_escape(g$ciudad_sede)
 ))
-}
 raw_close()
 ```
 
 ```{r temas-header, results='asis'}
 raw_open()
-if (is_html) {
-  cat(sprintf('<div class="two-col-bar"><div class="black-bar half">%s</div><div class="black-bar half">%s</div></div>\n',
-              toupper(g$visitante$nombre), toupper(g$local$nombre)))
-} else if (is_typst) {
-  cat(sprintf('
+cat(sprintf('
 #grid(columns: (1fr, 1fr), column-gutter: 6pt,
   block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: white, weight: "bold", size: 9.5pt)[%s]]],
   block(fill: rgb("#111111"), inset: (x: 8pt, y: 5pt), width: 100%%)[#align(center)[#text(fill: white, weight: "bold", size: 9.5pt)[%s]]],
 )
-', toupper(g$visitante$nombre), toupper(g$local$nombre)))
-}
+', typst_escape(toupper(g$visitante$nombre)), typst_escape(toupper(g$local$nombre))))
 raw_close()
 ```
 
@@ -196,14 +197,7 @@ ggplot(era_df, aes(x = pitcher, y = era, fill = periodo)) +
 ::: {.stat-box}
 ```{r cifra-box, results='asis'}
 raw_open()
-if (is_html) {
-  cat(sprintf('
-<div class="cifra-titulo">CIFRA DEL DÍA</div>
-<div class="cifra-valor-grande">%s</div>
-<div class="cifra-desc">%s</div>
-', g$cifra_destacada$valor, g$cifra_destacada$etiqueta))
-} else if (is_typst) {
-  cat(sprintf('
+cat(sprintf('
 #block(stroke: 0.5pt + rgb("#cccccc"), radius: 4pt, inset: 10pt, width: 100%%)[
   #align(center)[
     #text(size: 8.5pt, weight: "bold", tracking: 1pt)[CIFRA DEL D\u00cdA] \\
@@ -212,8 +206,7 @@ if (is_html) {
     #text(size: 7.5pt)[%s]
   ]
 ]
-', g$cifra_destacada$valor, g$cifra_destacada$etiqueta))
-}
+', typst_escape(g$cifra_destacada$valor), typst_escape(g$cifra_destacada$etiqueta)))
 raw_close()
 ```
 :::
@@ -222,8 +215,6 @@ raw_close()
 ```{r historial-box-open, results='asis'}
 if (is_typst) {
   cat('```{=typst}\n#block(stroke: 0.5pt + rgb("#cccccc"), radius: 4pt, inset: 10pt, width: 100%)[\n#text(weight: "bold", size: 9.5pt)[Historial de la serie]\n#v(4pt)\n```\n\n')
-} else if (is_html) {
-  cat("**Historial de la serie**\n\n")
 }
 ```
 
@@ -298,13 +289,10 @@ if (!is.null(game_tables) && length(game_tables) > 0) {
   # Cada tabla vive dos veces en tables.rds: una version "_gt" (objeto gt,
   # con el estilo de colores) y una version "_dt" (data.frame plano) --
   # pensadas como dos REPRESENTACIONES de la misma tabla, no como 12 tablas
-  # distintas. El bug original imprimia las 12 seguidas (cada tabla dos
-  # veces) y, en la salida PDF/typst, imprimia el objeto gt crudo -- gt solo
-  # sabe producir HTML, y typst no entiende HTML, asi que su bloque interno
-  # de CSS (cientos de lineas) se colaba como texto plano en el PDF. Aqui se
-  # elige UNA representacion por tabla segun el formato de salida: la
-  # version "_gt" (con color) para HTML, la version "_dt" via kable (texto
-  # plano, siempre portable) para el PDF.
+  # distintas. El bug original imprimia duplicados y, en PDF/Typst, podia
+  # colar bloques de estilos del objeto gt como texto plano. Aqui se elige
+  # una sola representacion portable: la version "_dt" via kable. Si falta,
+  # se toma el data.frame interno del objeto gt.
   concepts <- list(
     list(key = "hitting_team1", label = "Bateo equipo 1"),
     list(key = "hitting_team2", label = "Bateo equipo 2"),
@@ -325,11 +313,7 @@ if (!is.null(game_tables) && length(game_tables) > 0) {
 
     black_bar(concept$label)
 
-    if (is_html && !is.null(game_tables[[gt_name]])) {
-      cat('```{=html}\n<div class="gt-scroll">\n```\n')
-      print(game_tables[[gt_name]])
-      cat('```{=html}\n</div>\n```\n')
-    } else if (!is.null(game_tables[[dt_name]])) {
+    if (!is.null(game_tables[[dt_name]])) {
       print(knitr::kable(game_tables[[dt_name]]))
     } else if (!is.null(game_tables[[gt_name]])) {
       # ultimo recurso: no hay version _dt, usar la tabla de datos cruda del
