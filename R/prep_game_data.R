@@ -46,6 +46,7 @@ game_data <- function() {
     # --- Equipos ------------------------------------------------------------
     visitante = list(
       nombre = "Toros de Tijuana", abrev = "TIJ", inicial = "T",
+      logo_path = "assets/logos/tij.png",
       record_serie = "1-1", record_gira = "0-0",
       record_temporada = "60-31", posicion = "1ro. Zona Norte / 2do. LMB",
       record_playoffs_historico = "85-71 (.544)",
@@ -60,6 +61,7 @@ game_data <- function() {
     ),
     local = list(
       nombre = "Charros de Jalisco", abrev = "JAL", inicial = "C",
+      logo_path = "assets/logos/jal.png",
       record_serie = "1-1", record_casa = "0-0",
       temas = c(
         "Los primeros dos juegos de la serie se disputaron en Tijuana; Charros regresa a casa con la serie empatada.",
