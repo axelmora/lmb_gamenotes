@@ -252,6 +252,39 @@ tx_df <- purrr::map_df(g$transmisiones, ~ tibble::tibble(Medio = .x$medio, Detal
 knitr::kable(tx_df)
 ```
 
+```{r metricas-bar, results='asis'}
+if (!is.null(g$tables)) black_bar("Métricas avanzadas — temporada regular 2026")
+```
+
+```{r metricas-intro, results='asis'}
+if (!is.null(g$tables)) {
+  cat(
+    "Las siguientes tablas resumen el desempeño de **temporada regular 2026** ",
+    "de ambos equipos, tanto a nivel de plantilla individual como en ",
+    "comparativo directo. A diferencia de las estadísticas tradicionales ",
+    "(promedio, carreras impulsadas, efectividad) que dependen en parte de ",
+    "factores fuera del control del jugador -- suerte en la colocación de ",
+    "los batazos, calidad defensiva del equipo, etc. -- las métricas que se ",
+    "muestran aquí (wOBA, wRC+, K-BB%, FIP, entre otras) buscan aislar la ",
+    "contribución individual y ofrecer una lectura más estable del talento ",
+    "real detrás de los números. Ninguna de las dos cosas sustituye a la ",
+    "otra: se complementan.\n\n",
+    "**wOBA** (weighted On-Base Average) pondera cada resultado de turno al ",
+    "bat por su valor real en carreras -- un jonrón no vale lo mismo que un ",
+    "sencillo, y esta métrica sí distingue eso. **wRC+** ajusta ese mismo ",
+    "concepto contra el promedio de la liga y el parque, donde 100 es ",
+    "exactamente el promedio de LMB en 2026 (110 significa 10% mejor que el ",
+    "promedio). Del lado del pitcheo, **FIP** (Fielding Independent ",
+    "Pitching) aísla lo que un lanzador controla directamente -- ponches, ",
+    "bases por bola, jonrones -- dejando fuera lo que depende de su ",
+    "defensa, y **K-BB%** (ponches menos boletos, como porcentaje de ",
+    "bateadores enfrentados) es de los indicadores más estables para medir ",
+    "dominio real en el montículo.\n",
+    sep = ""
+  )
+}
+```
+
 ```{r tables-output, results='asis'}
 if (!is.null(g$tables)) {
   game_tables <- g$tables
@@ -262,40 +295,46 @@ if (!is.null(g$tables)) {
 }
 
 if (!is.null(game_tables) && length(game_tables) > 0) {
-  section_labels <- c(
-    hitting_team1_gt = "Bateo equipo 1",
-    hitting_team2_gt = "Bateo equipo 2",
-    pitching_team1_gt = "Pitcheo equipo 1",
-    pitching_team2_gt = "Pitcheo equipo 2",
-    hitting_vs_gt = "Comparativo de bateo",
-    pitching_vs_gt = "Comparativo de pitcheo",
-    hitting_t1_dt = "Bateo equipo 1",
-    hitting_t2_dt = "Bateo equipo 2",
-    pitching_t1_dt = "Pitcheo equipo 1",
-    pitching_t2_dt = "Pitcheo equipo 2",
-    hitting_vs_dt = "Comparativo de bateo",
-    pitching_vs_dt = "Comparativo de pitcheo"
+  # Cada tabla vive dos veces en tables.rds: una version "_gt" (objeto gt,
+  # con el estilo de colores) y una version "_dt" (data.frame plano) --
+  # pensadas como dos REPRESENTACIONES de la misma tabla, no como 12 tablas
+  # distintas. El bug original imprimia las 12 seguidas (cada tabla dos
+  # veces) y, en la salida PDF/typst, imprimia el objeto gt crudo -- gt solo
+  # sabe producir HTML, y typst no entiende HTML, asi que su bloque interno
+  # de CSS (cientos de lineas) se colaba como texto plano en el PDF. Aqui se
+  # elige UNA representacion por tabla segun el formato de salida: la
+  # version "_gt" (con color) para HTML, la version "_dt" via kable (texto
+  # plano, siempre portable) para el PDF.
+  concepts <- list(
+    list(key = "hitting_team1", label = "Bateo equipo 1"),
+    list(key = "hitting_team2", label = "Bateo equipo 2"),
+    list(key = "pitching_team1", label = "Pitcheo equipo 1"),
+    list(key = "pitching_team2", label = "Pitcheo equipo 2"),
+    list(key = "hitting_vs", label = "Comparativo de bateo"),
+    list(key = "pitching_vs", label = "Comparativo de pitcheo")
   )
 
-  display_names <- names(game_tables)
-  if (is.null(display_names)) display_names <- rep("", length(game_tables))
-
-  for (i in seq_along(game_tables)) {
-    table_name <- display_names[[i]]
-    table_obj <- game_tables[[i]]
-    if (is.null(table_obj)) next
-
-    label <- section_labels[[table_name]]
-    if (is.null(label)) {
-      label <- gsub("_", " ", table_name)
+  for (concept in concepts) {
+    gt_name <- paste0(concept$key, "_gt")
+    dt_name <- if (concept$key %in% c("hitting_vs", "pitching_vs")) {
+      paste0(concept$key, "_dt")
+    } else {
+      # los nombres "_dt" de las tablas por equipo usan t1/t2, no team1/team2
+      paste0(sub("team", "t", concept$key), "_dt")
     }
 
-    black_bar(label)
+    black_bar(concept$label)
 
-    if (inherits(table_obj, "gt_tbl")) {
-      print(table_obj)
-    } else {
-      print(knitr::kable(table_obj))
+    if (is_html && !is.null(game_tables[[gt_name]])) {
+      cat('```{=html}\n<div class="gt-scroll">\n```\n')
+      print(game_tables[[gt_name]])
+      cat('```{=html}\n</div>\n```\n')
+    } else if (!is.null(game_tables[[dt_name]])) {
+      print(knitr::kable(game_tables[[dt_name]]))
+    } else if (!is.null(game_tables[[gt_name]])) {
+      # ultimo recurso: no hay version _dt, usar la tabla de datos cruda del
+      # objeto gt en vez de imprimir el objeto gt (que romperia el PDF)
+      print(knitr::kable(game_tables[[gt_name]]$`_data`))
     }
 
     cat("\n\n")
